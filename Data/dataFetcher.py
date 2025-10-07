@@ -1,23 +1,37 @@
 import argparse
 import DBManager
 from fetchers import updateSP500
-from fetchers import updateListingTrack 
+from fetchers import updateListingTrack
+from fetchers import updateMovers
+from fetchers import updateEarningDates
 
 FETCHER_MAPPING = {
     "sp500": {
         "module": updateSP500,
-        "asset_class": "equity"
+        "asset_class": "equity",
+        "grouping_column": None 
     },
     "listings": {
         "module": updateListingTrack,
-        "asset_class": "equity"
+        "asset_class": "equity",
+        "grouping_column": "listing_method" 
+    },
+    "anomalies": {
+        "module": updateMovers,
+        "asset_class": "equity",
+        "grouping_column": "category"
+    },
+    "earnings": {
+        "module": updateEarningDates,
+        "asset_class": "equity",
+        "grouping_column": None 
     }
 }
 
 def run_fetch_and_store(fetcher_name):
     """
     Fetches data and stores it in the database.
-    Now handles the multi-purpose listing fetcher.
+    Generalized to handle simple, grouped, and special-case fetchers.
     """
     if fetcher_name not in FETCHER_MAPPING:
         print(f"Error: Fetcher '{fetcher_name}' is not recognized. Skipping.")
@@ -26,6 +40,7 @@ def run_fetch_and_store(fetcher_name):
     config = FETCHER_MAPPING[fetcher_name]
     module = config["module"]
     asset_class = config["asset_class"]
+    grouping_col = config.get("grouping_column")
 
     print(f"\n--- Processing fetcher: {fetcher_name} ---")
     
@@ -35,17 +50,26 @@ def run_fetch_and_store(fetcher_name):
         print(f"--- No data returned from fetcher: {fetcher_name}. Skipping DB insert. ---")
         return
 
-    if fetcher_name == 'listings':
-        for method in assets_df['listing_method'].unique():
-            print(f"  - Processing listing method: {method}")
-            method_df = assets_df[assets_df['listing_method'] == method].copy()
-            DBManager.upsert_assets(method_df, asset_class=asset_class, source=method.lower())
+    if fetcher_name == 'earnings':
+        print("  - Performing two-step save for earnings data...")
+        DBManager.upsert_assets(assets_df, asset_class=asset_class, source=fetcher_name)
+        DBManager.upsert_earnings_calendar(assets_df)
+
+    elif grouping_col:
+        for group_name in assets_df[grouping_col].unique():
+            print(f"  - Processing group: {group_name}")
+            
+            group_df = assets_df[assets_df[grouping_col] == group_name].copy()
+            DBManager.upsert_assets(group_df, asset_class=asset_class, source=str(group_name).lower())
     else:
         DBManager.upsert_assets(assets_df, asset_class=asset_class, source=fetcher_name)
 
     print(f"--- Completed processing for: {fetcher_name} ---")
 
 def main():
+    """
+    Main function to parse arguments and orchestrate fetcher execution.
+    """
     parser = argparse.ArgumentParser(description="TT2 Data Fetcher: A central hub for fetching data and storing it in the database.")
     
     parser.add_argument(

@@ -43,6 +43,18 @@ def create_database():
         """
         cursor.execute(create_prices_table_query)
         
+        print("Creating 'earnings_calendar' table...")
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS earnings_calendar (
+            asset_id INTEGER NOT NULL,
+            earnings_date DATE NOT NULL,
+            eps_estimate REAL,
+            report_time TEXT,
+            PRIMARY KEY (asset_id, earnings_date),
+            FOREIGN KEY (asset_id) REFERENCES assets (asset_id) ON DELETE CASCADE
+        );
+        """)
+        
         print("Database and all tables initialized successfully.")
 
 if __name__ == "__main__":
