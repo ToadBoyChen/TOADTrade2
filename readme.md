@@ -1,3 +1,5 @@
+## This project is WIP hence not fully developed.
+
 # TOAD Trade 2.0
 Welcome to my new portfolio generation and management program. This aims to be far more comprehensive than TOAD Trade 1.0 incorporating a deeper, higher level analysis of markets and making bets on it. 
 
