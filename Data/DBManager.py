@@ -19,15 +19,11 @@ def upsert_assets(assets_df, asset_class, source):
         print(f"Error: DataFrame for source '{source}' is missing 'symbol' or 'name' column.")
         return
 
-    # Add the metadata columns
     assets_df['asset_class'] = asset_class
     assets_df['source'] = source
-    # --- THE FIX ---
-    # Convert the datetime object to a standardized ISO 8601 string.
     assets_df['last_seen'] = datetime.utcnow().isoformat()
     assets_df['is_active'] = 1
     
-    # We still keep this best practice to prevent other bugs.
     column_order = ['symbol', 'name', 'asset_class', 'source', 'last_seen', 'is_active']
     assets_df = assets_df[column_order]
     

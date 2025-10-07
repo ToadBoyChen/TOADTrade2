@@ -1,30 +1,23 @@
 import argparse
 import DBManager
-
 from fetchers import updateSP500
-from fetchers import updateIPO
-from fetchers import updateSPAC
+from fetchers import updateListingTrack 
 
 FETCHER_MAPPING = {
     "sp500": {
         "module": updateSP500,
         "asset_class": "equity"
     },
-    "ipos": {
-        "module": updateIPO,
+    "listings": {
+        "module": updateListingTrack,
         "asset_class": "equity"
-    },
-    "spacs": {
-        "module": updateSPAC,
-        "asset_class": "equity"
-    },
+    }
 }
 
 def run_fetch_and_store(fetcher_name):
     """
-    1. Gets the correct fetcher module from the mapping.
-    2. Calls its `fetch()` function to get a DataFrame.
-    3. Passes the DataFrame to the db_manager to be saved.
+    Fetches data and stores it in the database.
+    Now handles the multi-purpose listing fetcher.
     """
     if fetcher_name not in FETCHER_MAPPING:
         print(f"Error: Fetcher '{fetcher_name}' is not recognized. Skipping.")
@@ -35,15 +28,24 @@ def run_fetch_and_store(fetcher_name):
     asset_class = config["asset_class"]
 
     print(f"\n--- Processing fetcher: {fetcher_name} ---")
-    assets_df = module.fetch()
-    DBManager.upsert_assets(assets_df, asset_class=asset_class, source=fetcher_name)
     
+    assets_df = module.fetch()
+    
+    if assets_df.empty:
+        print(f"--- No data returned from fetcher: {fetcher_name}. Skipping DB insert. ---")
+        return
+
+    if fetcher_name == 'listings':
+        for method in assets_df['listing_method'].unique():
+            print(f"  - Processing listing method: {method}")
+            method_df = assets_df[assets_df['listing_method'] == method].copy()
+            DBManager.upsert_assets(method_df, asset_class=asset_class, source=method.lower())
+    else:
+        DBManager.upsert_assets(assets_df, asset_class=asset_class, source=fetcher_name)
+
     print(f"--- Completed processing for: {fetcher_name} ---")
 
 def main():
-    """
-    Main function to parse arguments and orchestrate fetcher execution.
-    """
     parser = argparse.ArgumentParser(description="TT2 Data Fetcher: A central hub for fetching data and storing it in the database.")
     
     parser.add_argument(
