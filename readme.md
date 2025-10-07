@@ -9,6 +9,26 @@ Importantly, I will personally use this algorithm with real money and track that
 
 I hope to use my extensive knowledge in Mathematics, strong programming skills and emerging financial knowledge to produce something quite fantastic. 
 
+## What Data Does TT2 Use?
+TT2 needs to have a dynamic system that fetches data from various different sources. A key part of my strategy is to obtain such valuable data through automated processes and to work with this data again in an automated process. The data points I am including are,
+1. Broad market indexes like the S&P500,
+2. New listings, IPOs,
+3. Alternative listings like SPACs
+4. Most traded stocks,
+5. Top gainers & losers,
+6. New 52 week highs/ lows,
+7. Upcoming & recent earning dates, 
+8. Analyst rating changes,
+9. Insider transactions,
+10. Short interest,
+11. Volatility index,
+12. Google trends data,
+13. Historical volatility,
+14. Liquidity & tradability,
+15. Interest rates,
+16. Inflation rates,
+17. Advance/ decline.
+
 ## TOADTrade2 Development Roadmap
 
 ### Phase 1: Foundation & Infrastructure
