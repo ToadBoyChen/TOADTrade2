@@ -4,6 +4,7 @@ from fetchers import updateSP500
 from fetchers import updateListingTrack
 from fetchers import updateMovers
 from fetchers import updateEarningDates
+from fetchers import updateAnalystRatings
 
 FETCHER_MAPPING = {
     "sp500": {
@@ -23,8 +24,14 @@ FETCHER_MAPPING = {
     },
     "earnings": {
         "module": updateEarningDates,
-        "asset_class": "equity",
+        "asset_class": "supplemental",
         "grouping_column": None 
+    },
+    "analysis": {
+        "module": updateAnalystRatings,
+        "asset_class": "supplemental",
+        "grouping_column": None,
+        "fetch_args": {"scope": "top_10_sp500"}
     }
 }
 
@@ -36,7 +43,7 @@ def run_fetch_and_store(fetcher_name):
     if fetcher_name not in FETCHER_MAPPING:
         print(f"Error: Fetcher '{fetcher_name}' is not recognized. Skipping.")
         return
-
+    
     config = FETCHER_MAPPING[fetcher_name]
     module = config["module"]
     asset_class = config["asset_class"]
@@ -55,16 +62,21 @@ def run_fetch_and_store(fetcher_name):
         DBManager.upsert_assets(assets_df, asset_class=asset_class, source=fetcher_name)
         DBManager.upsert_earnings_calendar(assets_df)
 
+    elif fetcher_name == 'ratings':
+        print("  - Performing two-step save for ratings data...")
+        DBManager.upsert_assets(assets_df, asset_class=asset_class, source=fetcher_name)
+        DBManager.upsert_analyst_ratings(assets_df)
+        
     elif grouping_col:
         for group_name in assets_df[grouping_col].unique():
             print(f"  - Processing group: {group_name}")
-            
             group_df = assets_df[assets_df[grouping_col] == group_name].copy()
             DBManager.upsert_assets(group_df, asset_class=asset_class, source=str(group_name).lower())
     else:
         DBManager.upsert_assets(assets_df, asset_class=asset_class, source=fetcher_name)
 
     print(f"--- Completed processing for: {fetcher_name} ---")
+
 
 def main():
     """
