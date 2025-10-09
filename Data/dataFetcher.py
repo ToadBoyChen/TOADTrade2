@@ -5,6 +5,7 @@ from fetchers import updateListingTrack
 from fetchers import updateMovers
 from fetchers import updateEarningDates
 from fetchers import updateAnalystRatings
+from fetchers import updateInsiderTrades
 
 FETCHER_MAPPING = {
     "sp500": {
@@ -22,16 +23,22 @@ FETCHER_MAPPING = {
         "asset_class": "equity",
         "grouping_column": "category"
     },
-    "earnings": {
-        "module": updateEarningDates,
-        "asset_class": "supplemental",
-        "grouping_column": None 
-    },
+    # "earnings": {
+    #     "module": updateEarningDates,
+    #     "asset_class": "supplemental",
+    #     "grouping_column": None 
+    # },
     "analysis": {
         "module": updateAnalystRatings,
         "asset_class": "supplemental",
         "grouping_column": None,
-        "fetch_args": {"scope": "top_10_sp500"}
+        "fetch_args": {"scope": "top_250_sp500"}
+    },
+        "insiders": {
+        "module": updateInsiderTrades,
+        "asset_class": "supplemental",
+        "grouping_column": None,
+        "fetch_args": {"scope": "top_250_sp500"}
     }
 }
 
@@ -48,32 +55,38 @@ def run_fetch_and_store(fetcher_name):
     module = config["module"]
     asset_class = config["asset_class"]
     grouping_col = config.get("grouping_column")
+    fetch_args = config.get("fetch_args", {})
 
     print(f"\n--- Processing fetcher: {fetcher_name} ---")
     
-    assets_df = module.fetch()
+    if fetch_args:
+        print(f"  - Using fetch args: {fetch_args}")
+        data_df = module.fetch(**fetch_args)
+    else:
+        data_df = module.fetch()
     
-    if assets_df.empty:
+    if data_df.empty:
         print(f"--- No data returned from fetcher: {fetcher_name}. Skipping DB insert. ---")
         return
 
     if fetcher_name == 'earnings':
-        print("  - Performing two-step save for earnings data...")
-        DBManager.upsert_assets(assets_df, asset_class=asset_class, source=fetcher_name)
-        DBManager.upsert_earnings_calendar(assets_df)
+        print("  - Saving earnings calendar data...")
 
-    elif fetcher_name == 'ratings':
-        print("  - Performing two-step save for ratings data...")
-        DBManager.upsert_assets(assets_df, asset_class=asset_class, source=fetcher_name)
-        DBManager.upsert_analyst_ratings(assets_df)
+    elif fetcher_name == 'analysis':
+        print("  - Saving analyst scores data...")
+        DBManager.upsert_analyst_scores(data_df)
+        
+    elif fetcher_name == 'insiders':
+        print("  - Saving insider transaction data...")
+        DBManager.upsert_insider_transactions(data_df)
         
     elif grouping_col:
-        for group_name in assets_df[grouping_col].unique():
+        for group_name in data_df[grouping_col].unique():
             print(f"  - Processing group: {group_name}")
-            group_df = assets_df[assets_df[grouping_col] == group_name].copy()
+            group_df = data_df[data_df[grouping_col] == group_name].copy()
             DBManager.upsert_assets(group_df, asset_class=asset_class, source=str(group_name).lower())
     else:
-        DBManager.upsert_assets(assets_df, asset_class=asset_class, source=fetcher_name)
+        DBManager.upsert_assets(data_df, asset_class=asset_class, source=fetcher_name)
 
     print(f"--- Completed processing for: {fetcher_name} ---")
 

@@ -9,12 +9,12 @@ def create_database():
     
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
-        
+
+        # --- ASSETS TABLE ---
         print("Creating 'assets' table...")
-        create_assets_table_query = """
+        cursor.execute("""
         CREATE TABLE IF NOT EXISTS assets (
-            asset_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            symbol TEXT UNIQUE NOT NULL,
+            symbol TEXT PRIMARY KEY NOT NULL,
             name TEXT,
             asset_class TEXT NOT NULL,
             source TEXT,
@@ -22,14 +22,13 @@ def create_database():
             last_seen TIMESTAMP,
             is_active BOOLEAN DEFAULT 1
         );
-        """
-        cursor.execute(create_assets_table_query)
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_symbol ON assets (symbol);")
+        """)
 
+        # --- DAILY PRICES TABLE ---
         print("Creating 'daily_prices' table...")
-        create_prices_table_query = """
+        cursor.execute("""
         CREATE TABLE IF NOT EXISTS daily_prices (
-            asset_id INTEGER NOT NULL,
+            asset_symbol TEXT NOT NULL,
             date DATE NOT NULL,
             open REAL NOT NULL,
             high REAL NOT NULL,
@@ -37,38 +36,58 @@ def create_database():
             close REAL NOT NULL,
             adj_close REAL NOT NULL,
             volume INTEGER NOT NULL,
-            PRIMARY KEY (asset_id, date),
-            FOREIGN KEY (asset_id) REFERENCES assets (asset_id) ON DELETE CASCADE
+            PRIMARY KEY (asset_symbol, date),
+            FOREIGN KEY (asset_symbol) REFERENCES assets (symbol) ON DELETE CASCADE
         );
-        """
-        cursor.execute(create_prices_table_query)
-        
+        """)
+
+        # --- EARNINGS CALENDAR TABLE ---
         print("Creating 'earnings_calendar' table...")
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS earnings_calendar (
-            asset_id INTEGER NOT NULL,
-            symbol TEXT,
+            asset_symbol TEXT NOT NULL,
             earnings_date DATE NOT NULL,
             eps_estimate REAL,
             report_time TEXT,
-            PRIMARY KEY (asset_id, earnings_date),
-            FOREIGN KEY (asset_id) REFERENCES assets (asset_id) ON DELETE CASCADE
+            PRIMARY KEY (asset_symbol, earnings_date),
+            FOREIGN KEY (asset_symbol) REFERENCES assets (symbol) ON DELETE CASCADE
         );
         """)
-        
+
+        # --- ANALYST SCORES TABLE ---
         print("Creating 'analyst_scores' table...")
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS analyst_scores (
-            asset_id INTEGER PRIMARY KEY,
+            asset_symbol TEXT PRIMARY KEY NOT NULL,
             fetch_date DATE NOT NULL,
             recommendation_mean REAL,
             recommendation_key TEXT,
             analyst_count INTEGER,
             target_mean_price REAL,
-            FOREIGN KEY (asset_id) REFERENCES assets (asset_id) ON DELETE CASCADE
+            average_rating TEXT,
+            updated_at TEXT DEFAULT (datetime('now')),
+            FOREIGN KEY (asset_symbol) REFERENCES assets (symbol) ON DELETE CASCADE
         );
         """)
         
+        print("Creating 'insider_transactions' table...")
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS insider_transactions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            asset_symbol TEXT NOT NULL,
+            insider_name TEXT,
+            insider_position TEXT,
+            transaction_date DATE,
+            transaction_type TEXT,
+            shares INTEGER,
+            value REAL,
+            fetch_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (asset_symbol) REFERENCES assets (symbol) ON DELETE CASCADE
+        );
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_insider_asset_symbol ON insider_transactions (asset_symbol);")
+
+        conn.commit()
         print("Database and all tables initialized successfully.")
 
 if __name__ == "__main__":

@@ -7,102 +7,28 @@ from datetime import datetime
 
 DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'tt2_data.db')
 
-
-def upsert_earnings_calendar(earnings_df):
-    """
-    Inserts or updates data into the earnings_calendar table.
-    """
-    if not isinstance(earnings_df, pd.DataFrame) or earnings_df.empty:
-        return
-
-    print("Updating earnings calendar in the database...")
-    try:
-        with sqlite3.connect(DB_PATH) as conn:
-            cursor = conn.cursor()
-            
-            symbols = tuple(earnings_df['symbol'].unique())
-            cursor.execute(f"SELECT symbol, asset_id FROM assets WHERE symbol IN ({','.join(['?']*len(symbols))})", symbols)
-            symbol_to_id = dict(cursor.fetchall())
-            
-            earnings_df['asset_id'] = earnings_df['symbol'].map(symbol_to_id)
-            earnings_df.dropna(subset=['asset_id'], inplace=True)
-            earnings_df['asset_id'] = earnings_df['asset_id'].astype(int)
-            records = earnings_df[['asset_id', 'symbol', 'earnings_date', 'eps_estimate', 'report_time']].to_records(index=False)
-            
-            upsert_query = """
-            INSERT INTO earnings_calendar (asset_id, symbol, earnings_date, eps_estimate, report_time)
-            VALUES (?, ?, ?, ?, ?) -- CHANGE 2: Added a 5th placeholder for 'symbol'
-            ON CONFLICT(asset_id, earnings_date) DO UPDATE SET
-                symbol=excluded.symbol, -- CHANGE 3: Update the symbol on conflict
-                eps_estimate=excluded.eps_estimate,
-                report_time=excluded.report_time;
-            """
-            
-            cursor.executemany(upsert_query, records)
-            conn.commit()
-            print(f"Successfully upserted {len(records)} records into 'earnings_calendar'.")
-    except Exception as e:
-        print(f"Database error while updating earnings calendar: {e}")
-    """
-    Inserts or updates data into the earnings_calendar table.
-    """
-    if not isinstance(earnings_df, pd.DataFrame) or earnings_df.empty:
-        return
-
-    print("Updating earnings calendar in the database...")
-    try:
-        with sqlite3.connect(DB_PATH) as conn:
-            cursor = conn.cursor()
-            
-            symbols = tuple(earnings_df['symbol'].unique())
-            cursor.execute(f"SELECT symbol, asset_id FROM assets WHERE symbol IN ({','.join(['?']*len(symbols))})", symbols)
-            symbol_to_id = dict(cursor.fetchall())
-            
-            earnings_df['asset_id'] = earnings_df['symbol'].map(symbol_to_id)
-            earnings_df.dropna(subset=['asset_id'], inplace=True)
-            earnings_df['asset_id'] = earnings_df['asset_id'].astype(int)
-            
-            records = earnings_df[['asset_id', 'earnings_date', 'eps_estimate', 'report_time']].to_records(index=False)
-            
-            upsert_query = """
-            INSERT INTO earnings_calendar (asset_id, symbol, earnings_date, eps_estimate, report_time)
-            VALUES (?, ?, ?, ?)
-            ON CONFLICT(asset_id, earnings_date) DO UPDATE SET
-                eps_estimate=excluded.eps_estimate,
-                report_time=excluded.report_time;
-            """
-            
-            cursor.executemany(upsert_query, records)
-            conn.commit()
-            print(f"Successfully upserted {len(records)} records into 'earnings_calendar'.")
-    except Exception as e:
-        print(f"Database error while updating earnings calendar: {e}")
-
 def upsert_assets(assets_df, asset_class, source):
     """
     Inserts or updates asset data into the SQLite database.
     """
     if not isinstance(assets_df, pd.DataFrame) or assets_df.empty:
-        print(f"Warning: Received empty or invalid data for source '{source}'. Skipping DB operation.")
-        return
-
-    if 'symbol' not in assets_df.columns or 'name' not in assets_df.columns:
-        print(f"Error: DataFrame for source '{source}' is missing 'symbol' or 'name' column.")
+        print(f"Warning: Received empty data for source '{source}'. Skipping.")
         return
 
     assets_df['asset_class'] = asset_class
     assets_df['source'] = source
     assets_df['last_seen'] = datetime.utcnow().isoformat()
-    
+    if 'symbol' not in assets_df.columns or 'name' not in assets_df.columns:
+        print(f"Error: DataFrame for source '{source}' is missing 'symbol' or 'name'.")
+        return
+        
     column_order = ['symbol', 'name', 'asset_class', 'source', 'last_seen']
     assets_df = assets_df[column_order]
-    
     records_to_upsert = [tuple(x) for x in assets_df.to_records(index=False)]
 
     try:
         with sqlite3.connect(DB_PATH) as conn:
             cursor = conn.cursor()
-            
             upsert_query = """
             INSERT INTO assets (symbol, name, asset_class, source, last_seen)
             VALUES (?, ?, ?, ?, ?)
@@ -113,49 +39,84 @@ def upsert_assets(assets_df, asset_class, source):
                 last_seen=excluded.last_seen,
                 is_active=1;
             """
-            
             cursor.executemany(upsert_query, records_to_upsert)
             conn.commit()
-            print(f"Successfully upserted {len(records_to_upsert)} records into DB from source '{source}'.")
+            print(f"Successfully upserted {len(records_to_upsert)} records into 'assets' from source '{source}'.")
     except Exception as e:
         print(f"Database error for source '{source}': {e}")
 
+
 def upsert_analyst_scores(scores_df):
     """
-    Inserts or updates data into the analyst_scores table.
+    Inserts or updates data into the analyst_scores table using the symbol as the key.
     """
     if not isinstance(scores_df, pd.DataFrame) or scores_df.empty:
         return
 
     print("Updating analyst scores in the database...")
     try:
-        with sqlite3.connect(DB_PATH) as conn:
-            cursor = conn.cursor()
-            
-            symbols = tuple(scores_df['symbol'].unique())
-            cursor.execute(f"SELECT symbol, asset_id FROM assets WHERE symbol IN ({','.join(['?']*len(symbols))})", symbols)
-            symbol_to_id = dict(cursor.fetchall())
-            
-            scores_df['asset_id'] = scores_df['symbol'].map(symbol_to_id)
-            scores_df.dropna(subset=['asset_id'], inplace=True)
-            scores_df['asset_id'] = scores_df['asset_id'].astype(int)
-            
-            cols_to_insert = ['asset_id', 'fetch_date', 'recommendation_mean', 'recommendation_key', 'analyst_count', 'target_mean_price']
+        with sqlite3.connect(DB_PATH, timeout=10) as conn:
+            cols_to_insert = [
+                'symbol', 
+                'fetch_date', 'recommendation_mean', 'recommendation_key', 
+                'analyst_count', 'target_mean_price', 'average_rating'
+            ]
             records = scores_df[cols_to_insert].to_records(index=False)
             
             upsert_query = """
-            INSERT INTO analyst_scores (asset_id, fetch_date, recommendation_mean, recommendation_key, analyst_count, target_mean_price)
-            VALUES (?, ?, ?, ?, ?, ?)
-            ON CONFLICT(asset_id) DO UPDATE SET
+            INSERT INTO analyst_scores (
+                asset_symbol, fetch_date, recommendation_mean, recommendation_key, 
+                analyst_count, target_mean_price, average_rating
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(asset_symbol) DO UPDATE SET
                 fetch_date=excluded.fetch_date,
                 recommendation_mean=excluded.recommendation_mean,
                 recommendation_key=excluded.recommendation_key,
                 analyst_count=excluded.analyst_count,
-                target_mean_price=excluded.target_mean_price;
+                target_mean_price=excluded.target_mean_price,
+                average_rating=excluded.average_rating,
+                updated_at=datetime('now');
             """
             
+            cursor = conn.cursor()
             cursor.executemany(upsert_query, records)
             conn.commit()
             print(f"Successfully upserted {len(records)} records into 'analyst_scores'.")
     except Exception as e:
         print(f"Database error while updating analyst scores: {e}")
+        
+        
+
+def upsert_insider_transactions(transactions_df):
+    """
+    Inserts new insider transaction records into the database.
+    """
+    if not isinstance(transactions_df, pd.DataFrame) or transactions_df.empty:
+        return
+
+    print("Inserting insider transactions into the database...")
+    try:
+        transactions_df['transaction_date'] = pd.to_datetime(transactions_df['transaction_date']).dt.strftime('%Y-%m-%d')
+        
+        cols_to_insert = [
+            'symbol', 'insider_name', 'insider_position', 'transaction_date',
+            'transaction_type', 'shares', 'value'
+        ]
+        records = transactions_df[cols_to_insert].to_records(index=False)
+        
+        with sqlite3.connect(DB_PATH, timeout=10) as conn:
+            cursor = conn.cursor()
+            insert_query = """
+            INSERT INTO insider_transactions (
+                asset_symbol, insider_name, insider_position, transaction_date,
+                transaction_type, shares, value
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?);
+            """
+            cursor.executemany(insert_query, records)
+            conn.commit()
+            print(f"Successfully inserted {len(records)} records into 'insider_transactions'.")
+
+    except Exception as e:
+        print(f"Database error while inserting insider transactions: {e}")
