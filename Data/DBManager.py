@@ -120,3 +120,61 @@ def upsert_insider_transactions(transactions_df):
 
     except Exception as e:
         print(f"Database error while inserting insider transactions: {e}")
+        
+
+def upsert_daily_metrics(metrics_df):
+    """
+    Inserts or updates records in the daily_metrics table.
+    """
+    if not isinstance(metrics_df, pd.DataFrame) or metrics_df.empty:
+        print("⚠️ No daily metrics to insert.")
+        return
+
+    print("Upserting daily metrics into the database...")
+
+    try:
+        expected_cols = [
+            "asset_symbol", "date", "open", "high", "low", "close", "volume",
+            "volatility_30d", "ma_20d", "ma_50d", "rsi_14d"
+        ]
+
+        metrics_df = metrics_df.astype({
+            "open": float,
+            "high": float,
+            "low": float,
+            "close": float,
+            "volume": float,
+            "volatility_30d": float,
+            "ma_20d": float,
+            "ma_50d": float,
+            "rsi_14d": float
+        })
+        
+        records = [tuple(row) for row in metrics_df[expected_cols].itertuples(index=False, name=None)]
+
+        with sqlite3.connect(DB_PATH, timeout=10) as conn:
+            cursor = conn.cursor()
+            upsert_query = """
+            INSERT INTO daily_metrics (
+                asset_symbol, date, open, high, low, close, volume,
+                volatility_30d, ma_20d, ma_50d, rsi_14d
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(asset_symbol, date) DO UPDATE SET
+                open=excluded.open,
+                high=excluded.high,
+                low=excluded.low,
+                close=excluded.close,
+                volume=excluded.volume,
+                volatility_30d=excluded.volatility_30d,
+                ma_20d=excluded.ma_20d,
+                ma_50d=excluded.ma_50d,
+                rsi_14d=excluded.rsi_14d;
+            """
+            cursor.executemany(upsert_query, records)
+            conn.commit()
+
+        print(f"✅ Successfully upserted {len(records)} records into 'daily_metrics'.")
+
+    except Exception as e:
+        print(f"❌ Database error while upserting daily metrics: {e}")

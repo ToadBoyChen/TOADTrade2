@@ -10,7 +10,6 @@ def create_database():
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
 
-        # --- ASSETS TABLE ---
         print("Creating 'assets' table...")
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS assets (
@@ -24,24 +23,6 @@ def create_database():
         );
         """)
 
-        # --- DAILY PRICES TABLE ---
-        print("Creating 'daily_prices' table...")
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS daily_prices (
-            asset_symbol TEXT NOT NULL,
-            date DATE NOT NULL,
-            open REAL NOT NULL,
-            high REAL NOT NULL,
-            low REAL NOT NULL,
-            close REAL NOT NULL,
-            adj_close REAL NOT NULL,
-            volume INTEGER NOT NULL,
-            PRIMARY KEY (asset_symbol, date),
-            FOREIGN KEY (asset_symbol) REFERENCES assets (symbol) ON DELETE CASCADE
-        );
-        """)
-
-        # --- EARNINGS CALENDAR TABLE ---
         print("Creating 'earnings_calendar' table...")
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS earnings_calendar (
@@ -54,7 +35,6 @@ def create_database():
         );
         """)
 
-        # --- ANALYST SCORES TABLE ---
         print("Creating 'analyst_scores' table...")
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS analyst_scores (
@@ -86,6 +66,25 @@ def create_database():
         );
         """)
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_insider_asset_symbol ON insider_transactions (asset_symbol);")
+        
+        print("Creating 'daily_metrics' table...")
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS daily_metrics (
+            asset_symbol TEXT NOT NULL,
+            date DATE NOT NULL,
+            open REAL,
+            high REAL,
+            low REAL,
+            close REAL,
+            volume REAL,
+            volatility_30d REAL,
+            ma_20d REAL,        
+            ma_50d REAL,        
+            rsi_14d REAL,       
+            PRIMARY KEY (asset_symbol, date),
+            FOREIGN KEY (asset_symbol) REFERENCES assets (symbol) ON DELETE CASCADE
+        );
+        """)
 
         conn.commit()
         print("Database and all tables initialized successfully.")
