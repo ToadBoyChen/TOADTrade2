@@ -47,22 +47,28 @@ def upsert_assets(assets_df, asset_class, source):
 
 
 def upsert_analyst_scores(scores_df):
-    """
-    Inserts or updates data into the analyst_scores table using the symbol as the key.
-    """
     if not isinstance(scores_df, pd.DataFrame) or scores_df.empty:
         return
 
     print("Updating analyst scores in the database...")
     try:
         with sqlite3.connect(DB_PATH, timeout=10) as conn:
-            cols_to_insert = [
-                'symbol', 
-                'fetch_date', 'recommendation_mean', 'recommendation_key', 
-                'analyst_count', 'target_mean_price', 'average_rating'
+            for col in ["recommendation_mean", "analyst_count", "target_mean_price"]:
+                scores_df[col] = pd.to_numeric(scores_df[col], errors="coerce")
+
+            scores_df = scores_df.where(pd.notnull(scores_df), None)
+            records = [
+                (
+                    str(row.symbol),
+                    str(row.fetch_date),
+                    float(row.recommendation_mean) if row.recommendation_mean is not None else None,
+                    str(row.recommendation_key),
+                    float(row.analyst_count) if row.analyst_count is not None else None,
+                    float(row.target_mean_price) if row.target_mean_price is not None else None,
+                )
+                for row in scores_df.itertuples(index=False)
             ]
-            records = scores_df[cols_to_insert].to_records(index=False)
-            
+
             upsert_query = """
             INSERT INTO analyst_scores (
                 asset_symbol, fetch_date, recommendation_mean, recommendation_key, 
@@ -75,23 +81,19 @@ def upsert_analyst_scores(scores_df):
                 recommendation_key=excluded.recommendation_key,
                 analyst_count=excluded.analyst_count,
                 target_mean_price=excluded.target_mean_price,
-                average_rating=excluded.average_rating,
                 updated_at=datetime('now');
             """
-            
+
             cursor = conn.cursor()
             cursor.executemany(upsert_query, records)
             conn.commit()
             print(f"Successfully upserted {len(records)} records into 'analyst_scores'.")
     except Exception as e:
         print(f"Database error while updating analyst scores: {e}")
-        
+
         
 
 def upsert_insider_transactions(transactions_df):
-    """
-    Inserts new insider transaction records into the database.
-    """
     if not isinstance(transactions_df, pd.DataFrame) or transactions_df.empty:
         return
 
@@ -123,11 +125,8 @@ def upsert_insider_transactions(transactions_df):
         
 
 def upsert_daily_metrics(metrics_df):
-    """
-    Inserts or updates records in the daily_metrics table.
-    """
     if not isinstance(metrics_df, pd.DataFrame) or metrics_df.empty:
-        print("⚠️ No daily metrics to insert.")
+        print("No daily metrics to insert.")
         return
 
     print("Upserting daily metrics into the database...")
@@ -174,7 +173,7 @@ def upsert_daily_metrics(metrics_df):
             cursor.executemany(upsert_query, records)
             conn.commit()
 
-        print(f"✅ Successfully upserted {len(records)} records into 'daily_metrics'.")
+        print(f"Successfully upserted {len(records)} records into 'daily_metrics'.")
 
     except Exception as e:
-        print(f"❌ Database error while upserting daily metrics: {e}")
+        print(f"Database error while upserting daily metrics: {e}")

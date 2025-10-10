@@ -42,9 +42,8 @@ def create_database():
             fetch_date DATE NOT NULL,
             recommendation_mean REAL,
             recommendation_key TEXT,
-            analyst_count INTEGER,
+            analyst_count REAL,
             target_mean_price REAL,
-            average_rating TEXT,
             updated_at TEXT DEFAULT (datetime('now')),
             FOREIGN KEY (asset_symbol) REFERENCES assets (symbol) ON DELETE CASCADE
         );
