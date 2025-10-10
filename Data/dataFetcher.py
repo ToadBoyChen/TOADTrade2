@@ -1,5 +1,6 @@
 import argparse
 import DBManager
+import shutil
 from fetchers import updateSP500
 from fetchers import updateListingTrack
 from fetchers import updateMovers
@@ -49,6 +50,9 @@ FETCHER_MAPPING = {
     },
 }
 
+def print_separator(char="="):
+    width = shutil.get_terminal_size((80, 20)).columns
+    print(char * width)
 
 def run_fetch_and_store(fetcher_name):
     if fetcher_name not in FETCHER_MAPPING:
@@ -61,7 +65,8 @@ def run_fetch_and_store(fetcher_name):
     grouping_col = config.get("grouping_column")
     fetch_args = config.get("fetch_args", {})
 
-    print(f"\n--- Processing fetcher: {fetcher_name} ---")
+    print(f"\nProcessing fetcher: {fetcher_name}")
+    print_separator()
 
     if fetch_args:
         print(f"  - Using fetch args: {fetch_args}")
@@ -70,7 +75,7 @@ def run_fetch_and_store(fetcher_name):
         data_df = module.fetch()
 
     if data_df.empty:
-        print(f"--- No data returned from fetcher: {fetcher_name}. Skipping DB insert. ---")
+        print(f"No data returned from fetcher: {fetcher_name}. Skipping DB insert.")
         return
 
     if fetcher_name == 'analysis':
@@ -87,7 +92,7 @@ def run_fetch_and_store(fetcher_name):
 
     elif grouping_col:
         for group_name in data_df[grouping_col].unique():
-            print(f"  - Processing group: {group_name}")
+            print(f"  - Processing group: {group_name}...")
             group_df = data_df[data_df[grouping_col] == group_name].copy()
             DBManager.upsert_assets(
                 group_df, asset_class=asset_class, source=str(group_name).lower()
@@ -95,36 +100,39 @@ def run_fetch_and_store(fetcher_name):
     else:
         DBManager.upsert_assets(data_df, asset_class=asset_class, source=fetcher_name)
 
-    print(f"--- Completed processing for: {fetcher_name} ---")
+    print_separator()
+    print(f"Completed processing for: {fetcher_name}")
+    print("")
+    print("")
 
 
 def show_menu():
-    print("\nTT2 Data Fetcher Menu 📊")
+    print("\nTT2 Data Fetcher Menu")
     print("===================================")
-    print("1) Fetch SP500 Constituents")
+    print("1) Run ALL Fetchers")
     print("2) Fetch Listings / IPOs")
     print("3) Fetch Market Anomalies (Movers)")
     print("4) Fetch Analyst Ratings")
     print("5) Fetch Insider Trades")
     print("6) Fetch Daily Metrics")
-    print("7) Run ALL Fetchers")
+    print("7) Fetch S&P500 Constituents")
     print("0) Exit")
     print("===================================")
 
     choice = input("Enter your choice: ").strip()
 
     mapping = {
-        "1": "sp500",
+        "1": "all",
         "2": "listings",
         "3": "anomalies",
         "4": "analysis",
         "5": "insiders",
         "6": "daily_metrics",
-        "7": "all",
+        "7": "sp500",
     }
 
     if choice == "0":
-        print("👋 Exiting...")
+        print("Exiting...")
         return []
 
     return [mapping.get(choice)] if choice in mapping and mapping[choice] != "all" else list(FETCHER_MAPPING.keys())
@@ -158,11 +166,11 @@ def main():
     else:
         fetchers_to_run = args.fetch
 
-    print("\n🚀 Starting data fetch sequence...\n")
+    print("\nStarting data fetch sequence...\n")
     for fetcher_name in fetchers_to_run:
         run_fetch_and_store(fetcher_name)
 
-    print("\n✅ All data fetching tasks are complete.")
+    print("\nAll data fetching tasks are complete.")
 
 
 if __name__ == "__main__":

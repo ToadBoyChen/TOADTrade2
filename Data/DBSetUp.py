@@ -39,7 +39,6 @@ def create_database():
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS analyst_scores (
             asset_symbol TEXT PRIMARY KEY NOT NULL,
-            fetch_date DATE NOT NULL,
             recommendation_mean REAL,
             recommendation_key TEXT,
             analyst_count REAL,

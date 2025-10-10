@@ -4,7 +4,6 @@ import yfinance as yf
 import pandas as pd
 import sqlite3
 import os
-from datetime import date
 from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
 
@@ -48,19 +47,15 @@ def fetch_single_score(symbol):
         return {
             'symbol': symbol,
             'name': info.get('shortName', symbol),
-            'fetch_date': date.today(),
             'recommendation_mean': recommendation_mean,
             'recommendation_key': info.get('recommendationKey'),
             'analyst_count': analyst_count,
-            'target_mean_price': target_mean_price,
-            'average_rating': info.get('averageAnalystRating')
+            'target_mean_price': target_mean_price
         }
     except Exception as e:
         return None
 
 def fetch(scope, max_workers=20):
-    print(f"Fetching current analyst scores from yfinance with scope: '{scope}'")
-    
     if scope == 'top_10_sp500':
         tickers_to_check = _get_tickers_from_db(source='sp500', limit=10)
     elif scope == 'top_250_sp500':
@@ -73,8 +68,6 @@ def fetch(scope, max_workers=20):
         print(f"Error: Unknown scope '{scope}'. Aborting scores fetch.")
         return pd.DataFrame()
 
-    print(f"Found {len(tickers_to_check)} tickers to check for scores. Starting parallel fetch...")
-
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         results = list(tqdm(executor.map(fetch_single_score, tickers_to_check), total=len(tickers_to_check)))
 
@@ -86,8 +79,6 @@ def fetch(scope, max_workers=20):
 
     master_df = pd.DataFrame(all_scores_data)
 
-    master_df['fetch_date'] = pd.to_datetime(master_df['fetch_date']).dt.strftime('%Y-%m-%d')
-    
     numeric_fields = ['recommendation_mean', 'analyst_count', 'target_mean_price']
     
     for col in numeric_fields:
@@ -98,6 +89,3 @@ def fetch(scope, max_workers=20):
 
 if __name__ == "__main__":
     data = fetch('top_250_sp500')
-    if not data.empty:
-        print("\n--- Analyst Scores Data Sample ---")
-        print(data.head().to_string(index=False))

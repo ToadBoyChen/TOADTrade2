@@ -60,7 +60,6 @@ def upsert_analyst_scores(scores_df):
             records = [
                 (
                     str(row.symbol),
-                    str(row.fetch_date),
                     float(row.recommendation_mean) if row.recommendation_mean is not None else None,
                     str(row.recommendation_key),
                     float(row.analyst_count) if row.analyst_count is not None else None,
@@ -71,12 +70,11 @@ def upsert_analyst_scores(scores_df):
 
             upsert_query = """
             INSERT INTO analyst_scores (
-                asset_symbol, fetch_date, recommendation_mean, recommendation_key, 
-                analyst_count, target_mean_price, average_rating
+                asset_symbol, recommendation_mean, recommendation_key, 
+                analyst_count, target_mean_price
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?)
             ON CONFLICT(asset_symbol) DO UPDATE SET
-                fetch_date=excluded.fetch_date,
                 recommendation_mean=excluded.recommendation_mean,
                 recommendation_key=excluded.recommendation_key,
                 analyst_count=excluded.analyst_count,

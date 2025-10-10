@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-import os
 import sys
 import subprocess
 
@@ -19,6 +17,7 @@ def run_command(command):
 
 def setup_database():
     print("\nSetting up the database...")
+    run_command("rm tt2_data.db")
     database_setup = run_command("python Data/DBSetUp.py")
     if database_setup:
         print("Database setup complete.")
