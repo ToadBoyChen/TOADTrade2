@@ -40,7 +40,7 @@ FETCHER_MAPPING = {
         "module": updateInsiderTrades,
         "asset_class": "supplemental",
         "grouping_column": None,
-        "fetch_args": {"scope": "top_10_sp500"}
+        "fetch_args": {"scope": "top_250_sp500"}
     },
     "daily_metrics": {
         "module": updateDailyMetrics,

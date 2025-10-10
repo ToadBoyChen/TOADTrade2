@@ -6,7 +6,7 @@ IMAGE_NAME="tt2:latest"
 CONTAINER_NAME="tt2_container"
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-FORCE_REBUILD=true
+FORCE_REBUILD=false
 if [[ "$1" == "--rebuild" ]]; then
     FORCE_REBUILD=true
 fi
