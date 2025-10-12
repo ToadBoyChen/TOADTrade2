@@ -25,28 +25,29 @@ FETCHER_MAPPING = {
         "asset_class": "equity",
         "grouping_column": "category"
     },
-    # "earnings": {
-    #     "module": updateEarningDates,
-    #     "asset_class": "supplemental",
-    #     "grouping_column": None
-    # },
+    "earnings": {
+         "module": updateEarningDates,
+         "asset_class": "supplemental",
+         "grouping_column": None,
+         "fetch_args": {"scope": "sp500"},
+    },
     "analysis": {
         "module": updateAnalystRatings,
         "asset_class": "supplemental",
         "grouping_column": None,
-        "fetch_args": {"scope": "top_250_sp500"}
+        "fetch_args": {"scope": "sp500"}
     },
     "insiders": {
         "module": updateInsiderTrades,
         "asset_class": "supplemental",
         "grouping_column": None,
-        "fetch_args": {"scope": "top_250_sp500"}
+        "fetch_args": {"scope": "sp500"}
     },
     "daily_metrics": {
         "module": updateDailyMetrics,
         "asset_class": "metrics",
         "grouping_column": None,
-        "fetch_args": {"scope": "top_10_sp500"}
+        "fetch_args": {"scope": "sp500"}
     },
 }
 
@@ -90,6 +91,10 @@ def run_fetch_and_store(fetcher_name):
         print("  - Saving daily historical metrics...")
         DBManager.upsert_daily_metrics(data_df)
 
+    elif fetcher_name == 'earnings':
+        print(" - saving earnings dates data...")
+        DBManager.upsert_earnings_dates(data_df)
+
     elif grouping_col:
         for group_name in data_df[grouping_col].unique():
             print(f"  - Processing group: {group_name}...")
@@ -116,6 +121,7 @@ def show_menu():
     print("5) Fetch Insider Trades")
     print("6) Fetch Daily Metrics")
     print("7) Fetch S&P500 Constituents")
+    print("8) Fetch Earning Dates")
     print("0) Exit")
     print("===================================")
 
@@ -129,6 +135,7 @@ def show_menu():
         "5": "insiders",
         "6": "daily_metrics",
         "7": "sp500",
+        "8": "earnings"
     }
 
     if choice == "0":

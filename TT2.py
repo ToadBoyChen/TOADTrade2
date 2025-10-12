@@ -24,7 +24,6 @@ def setup_database():
     else:
         print("Database setup encountered an error.")
 
-
 def fetch_data_menu():
     data_yes_no_choice = input("\nWould you like new or more data (y/n)?")
 

@@ -84,6 +84,18 @@ def create_database():
         );
         """)
 
+        print("creating 'earning_dates' table...")
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS earnings_dates (
+            asset_symbol TEXT NOT NULL,
+            earnings_date TEXT NOT NULL,
+            eps_estimate REAL,
+            eps_reported REAL,
+            eps_surprise_pct REAL,
+            PRIMARY KEY (asset_symbol, earnings_date)
+        );
+        """)
+
         conn.commit()
         print("Database and all tables initialized successfully.")
 

@@ -175,3 +175,66 @@ def upsert_daily_metrics(metrics_df):
 
     except Exception as e:
         print(f"Database error while upserting daily metrics: {e}")
+
+
+def upsert_earnings_dates(earnings_df):
+    """
+    Inserts or updates earnings date data into the SQLite database.
+    Expected columns:
+        - symbol
+        - earnings_date
+        - eps_estimate
+        - eps_reported
+        - eps_surprise_pct
+    """
+    if not isinstance(earnings_df, pd.DataFrame) or earnings_df.empty:
+        print("No earnings data to insert.")
+        return
+
+    print("Upserting earnings dates into the database...")
+
+    try:
+        # Ensure consistent data types
+        earnings_df['earnings_date'] = pd.to_datetime(earnings_df['earnings_date']).dt.strftime('%Y-%m-%d')
+        for col in ['eps_estimate', 'eps_reported', 'eps_surprise_pct']:
+            earnings_df[col] = pd.to_numeric(earnings_df[col], errors='coerce')
+
+        expected_cols = [
+            'symbol', 'earnings_date', 'eps_estimate', 'eps_reported', 'eps_surprise_pct'
+        ]
+        if not all(c in earnings_df.columns for c in expected_cols):
+            missing = [c for c in expected_cols if c not in earnings_df.columns]
+            print(f"Error: Missing required columns in earnings_df: {missing}")
+            return
+
+        records = [
+            (
+                row.symbol,
+                row.earnings_date,
+                row.eps_estimate if pd.notnull(row.eps_estimate) else None,
+                row.eps_reported if pd.notnull(row.eps_reported) else None,
+                row.eps_surprise_pct if pd.notnull(row.eps_surprise_pct) else None
+            )
+            for row in earnings_df.itertuples(index=False)
+        ]
+
+        with sqlite3.connect(DB_PATH, timeout=10) as conn:
+            cursor = conn.cursor()
+            upsert_query = """
+            INSERT INTO earnings_dates (
+                asset_symbol, earnings_date, eps_estimate, eps_reported, eps_surprise_pct
+            )
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(asset_symbol, earnings_date) DO UPDATE SET
+                eps_estimate=excluded.eps_estimate,
+                eps_reported=excluded.eps_reported,
+                eps_surprise_pct=excluded.eps_surprise_pct;
+            """
+            cursor.executemany(upsert_query, records)
+            conn.commit()
+
+        print(f"✅ Successfully upserted {len(records)} records into 'earnings_dates'.")
+
+    except Exception as e:
+        print(f"Database error while upserting earnings dates: {e}")
+
