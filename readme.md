@@ -32,7 +32,7 @@ TT2 needs to have a dynamic system that fetches data from various different sour
 ## TOADTrade2 Development Roadmap
 
 ### Phase 1: Foundation & Infrastructure
-- [ ] **Data Pipeline:** Set up a robust data pipeline using a proper database (e.g., PostgreSQL/TimescaleDB) for storing and retrieving clean historical data.
+- [x] **Data Pipeline:** Set up a robust data pipeline using a proper database (e.g., PostgreSQL/TimescaleDB) for storing and retrieving clean historical data.
 - [ ] **Backtesting Engine:** Upgrade the backtester to be event-driven, accounting for transaction costs, slippage, and realistic order fills.
 - [ ] **Research Environment:** Containerize the entire research and backtesting stack using Docker for full reproducibility.
 
